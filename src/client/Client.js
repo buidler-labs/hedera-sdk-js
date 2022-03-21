@@ -482,6 +482,70 @@ export default class Client {
     }
 
     /**
+     * @param {number} nodeMinBackoff
+     * @returns {this}
+     */
+    setNodeMinBackoff(nodeMinBackoff) {
+        this._network.setMinBackoff(nodeMinBackoff);
+        return this;
+    }
+
+    /**
+     * @returns {number}
+     */
+    get nodeMinBackoff() {
+        return this._network.minBackoff;
+    }
+
+    /**
+     * @param {number} nodeMaxBackoff
+     * @returns {this}
+     */
+    setNodeMaxBackoff(nodeMaxBackoff) {
+        this._network.setMaxBackoff(nodeMaxBackoff);
+        return this;
+    }
+
+    /**
+     * @returns {number}
+     */
+    get nodeMaxBackoff() {
+        return this._network.maxBackoff;
+    }
+
+    /**
+     * @param {number} nodeMinReadmitPeriod
+     * @returns {this}
+     */
+    setNodeMinReadmitPeriod(nodeMinReadmitPeriod) {
+        this._network.setNodeMinReadmitPeriod(nodeMinReadmitPeriod);
+        return this;
+    }
+
+    /**
+     * @returns {number}
+     */
+    get nodeMinReadmitPeriod() {
+        return this._network.nodeMinReadmitPeriod;
+    }
+
+    /**
+     * @param {number} nodeMaxReadmitPeriod
+     * @returns {this}
+     */
+    setNodeMaxReadmitPeriod(nodeMaxReadmitPeriod) {
+        this._network.setNodeMaxReadmitPeriod(nodeMaxReadmitPeriod);
+        return this;
+    }
+
+    /**
+     * @returns {number}
+     */
+    get nodeMaxReadmitPeriod() {
+        return this._network.nodeMaxReadmitPeriod;
+    }
+
+    /**
      * @param {number} requestTimeout - Number of milliseconds
      * @returns {this}
      */

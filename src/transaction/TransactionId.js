@@ -1,6 +1,6 @@
 import AccountId from "../account/AccountId.js";
 import Timestamp from "../Timestamp.js";
-import * as proto from "@hashgraph/proto";
+import * as HashgraphProto from "@hashgraph/proto";
 import Long from "long";
 
 /**
@@ -63,7 +63,7 @@ export default class TransactionId {
      * @returns {TransactionId}
      */
     static withValidStart(accountId, validStart) {
-        return new TransactionId(accountId, validStart, null);
+        return new TransactionId(accountId, validStart);
     }
 
     /**
@@ -143,7 +143,7 @@ export default class TransactionId {
 
     /**
      * @internal
-     * @param {proto.ITransactionID} id
+     * @param {HashgraphProto.proto.ITransactionID} id
      * @returns {TransactionId}
      */
     static _fromProtobuf(id) {
@@ -151,8 +151,8 @@ export default class TransactionId {
             return new TransactionId(
                 AccountId._fromProtobuf(id.accountID),
                 Timestamp._fromProtobuf(id.transactionValidStart),
-                id.scheduled,
-                id.nonce
+                id.scheduled != null ? id.scheduled : undefined,
+                id.nonce != null ? id.nonce : undefined
             );
         } else {
             throw new Error(
@@ -163,7 +163,7 @@ export default class TransactionId {
 
     /**
      * @internal
-     * @returns {proto.ITransactionID}
+     * @returns {HashgraphProto.proto.ITransactionID}
      */
     _toProtobuf() {
         return {
@@ -181,14 +181,18 @@ export default class TransactionId {
      * @returns {TransactionId}
      */
     static fromBytes(bytes) {
-        return TransactionId._fromProtobuf(proto.TransactionID.decode(bytes));
+        return TransactionId._fromProtobuf(
+            HashgraphProto.proto.TransactionID.decode(bytes)
+        );
     }
 
     /**
      * @returns {Uint8Array}
      */
     toBytes() {
-        return proto.TransactionID.encode(this._toProtobuf()).finish();
+        return HashgraphProto.proto.TransactionID.encode(
+            this._toProtobuf()
+        ).finish();
     }
 
     /**

@@ -3,8 +3,9 @@ import Hbar from "../Hbar.js";
 
 /**
  * @namespace proto
- * @typedef {import("@hashgraph/proto").ICryptoAllowance} proto.ICryptoAllowance
- * @typedef {import("@hashgraph/proto").IAccountID} proto.IAccountID
+ * @typedef {import("@hashgraph/proto").proto.IGrantedCryptoAllowance} HashgraphProto.proto.IGrantedCryptoAllowance
+ * @typedef {import("@hashgraph/proto").proto.ICryptoAllowance} HashgraphProto.proto.ICryptoAllowance
+ * @typedef {import("@hashgraph/proto").proto.IAccountID} HashgraphProto.proto.IAccountID
  */
 
 /**
@@ -46,18 +47,22 @@ export default class HbarAllowance {
 
     /**
      * @internal
-     * @param {proto.ICryptoAllowance} approval
+     * @param {HashgraphProto.proto.ICryptoAllowance} approval
      * @returns {HbarAllowance}
      */
     static _fromProtobuf(approval) {
         return new HbarAllowance({
             spenderAccountId: AccountId._fromProtobuf(
-                /** @type {proto.IAccountID} */ (approval.spender)
+                /** @type {HashgraphProto.proto.IAccountID} */ (
+                    approval.spender
+                )
             ),
             ownerAccountId:
                 approval.owner != null
                     ? AccountId._fromProtobuf(
-                          /**@type {proto.IAccountID}*/ (approval.owner)
+                          /**@type {HashgraphProto.proto.IAccountID}*/ (
+                              approval.owner
+                          )
                       )
                     : null,
             amount: Hbar.fromTinybars(
@@ -68,7 +73,26 @@ export default class HbarAllowance {
 
     /**
      * @internal
-     * @returns {proto.ICryptoAllowance}
+     * @param {HashgraphProto.proto.IGrantedCryptoAllowance} approval
+     * @returns {HbarAllowance}
+     */
+    static _fromGrantedProtobuf(approval) {
+        return new HbarAllowance({
+            spenderAccountId: AccountId._fromProtobuf(
+                /** @type {HashgraphProto.proto.IAccountID} */ (
+                    approval.spender
+                )
+            ),
+            ownerAccountId: null,
+            amount: Hbar.fromTinybars(
+                approval.amount != null ? approval.amount : 0
+            ),
+        });
+    }
+
+    /**
+     * @internal
+     * @returns {HashgraphProto.proto.ICryptoAllowance}
      */
     _toProtobuf() {
         return {

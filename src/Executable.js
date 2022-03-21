@@ -1,12 +1,15 @@
 import GrpcServiceError from "./grpc/GrpcServiceError.js";
 import GrpcStatus from "./grpc/GrpcStatus.js";
 import List from "./transaction/List.js";
+import Logger from "js-logger";
 
 /**
  * @typedef {import("./account/AccountId.js").default} AccountId
  * @typedef {import("./channel/Channel.js").default} Channel
  * @typedef {import("./transaction/TransactionId.js").default} TransactionId
  * @typedef {import("./client/Client.js").ClientOperator} ClientOperator
+ * @typedef {import("./Signer.js").default} Signer
+ * @typedef {import("./PublicKey.js").default} PublicKey
  */
 
 /**
@@ -36,14 +39,6 @@ export default class Executable {
          * @type {number}
          */
         this._maxAttempts = 10;
-
-        /**
-         * The index of the next transaction to be executed.
-         *
-         * @protected
-         * @type {number}
-         */
-        this._nextNodeAccountIdIndex = 0;
 
         /**
          * List of node account IDs for each transaction that has been
@@ -77,6 +72,7 @@ export default class Executable {
      * @returns {?AccountId[]}
      */
     get nodeAccountIds() {
+        this._nodeAccountIds.setLocked();
         return this._nodeAccountIds.isEmpty ? null : this._nodeAccountIds.list;
     }
 
@@ -259,14 +255,19 @@ export default class Executable {
     }
 
     /**
+     * @abstract
+     * @returns {string}
+     */
+    _getLogId() {
+        throw new Error("not implemented");
+    }
+
+    /**
      * @protected
      * @returns {void}
      */
     _advanceRequest() {
-        // each time we move our cursor to the next transaction
-        // wrapping around to ensure we are cycling
-        this._nextNodeAccountIdIndex =
-            (this._nextNodeAccountIdIndex + 1) % this._nodeAccountIds.length;
+        this._nodeAccountIds.advance();
     }
 
     /**
@@ -293,6 +294,29 @@ export default class Executable {
             (error.status._code === GrpcStatus.Internal._code &&
                 RST_STREAM.test(error.message))
         );
+    }
+
+    /**
+     * @param {AccountId} accountId
+     * @param {PublicKey} publicKey
+     * @param {(message: Uint8Array) => Promise<Uint8Array>} transactionSigner
+     * @returns {this}
+     */
+    _setOperatorWith(accountId, publicKey, transactionSigner) {
+        this._operator = {
+            transactionSigner,
+            accountId,
+            publicKey,
+        };
+        return this;
+    }
+
+    /**
+     * @param {Signer} signer
+     * @returns {Promise<OutputT>}
+     */
+    async executeWithSigner(signer) {
+        return signer.sendRequest(this);
     }
 
     /**
@@ -333,14 +357,30 @@ export default class Executable {
                 throw new Error("timeout exceeded");
             }
 
-            const nodeAccountId = this._getNodeAccountId();
-            const node = client._network.getNode(nodeAccountId);
+            let nodeAccountId;
+            let node;
+
+            // If node account IDs is locked then use the node account IDs
+            // from the list, otherwise build a new list of one node account ID
+            // using the entire network
+            if (this._nodeAccountIds.locked) {
+                nodeAccountId = this._getNodeAccountId();
+                node = client._network.getNode(nodeAccountId);
+            } else {
+                node = client._network.getNode();
+                nodeAccountId = node.accountId;
+            }
 
             if (node == null) {
                 throw new Error(
                     `NodeAccountId not recognized: ${nodeAccountId.toString()}`
                 );
             }
+
+            const logId = this._getLogId();
+            Logger.debug(
+                `[${logId}] Node AccountID: ${node.accountId.toString()}, IP: ${node.address.toString()}`
+            );
 
             const channel = node.getChannel();
             const request = await this._makeRequestAsync();
@@ -353,7 +393,10 @@ export default class Executable {
             let response;
 
             if (!node.isHealthy()) {
-                await node.wait();
+                Logger.debug(
+                    `[${logId}] node is not healthy, waiting ${node.getRemainingTime()}`
+                );
+                await node.backoff();
             }
 
             try {
@@ -380,20 +423,23 @@ export default class Executable {
                 const error = GrpcServiceError._fromResponse(
                     /** @type {Error} */ (err)
                 );
+                Logger.debug(
+                    `[${logId}] received gRPC error ${JSON.stringify(error)}`
+                );
 
                 if (
                     error instanceof GrpcServiceError &&
                     this._shouldRetryExceptionally(error) &&
                     attempt <= maxAttempts
                 ) {
-                    node.increaseDelay();
+                    client._network.increaseBackoff(node);
                     continue;
                 }
 
                 throw err;
             }
 
-            node.decreaseDelay();
+            client._network.decreaseBackoff(node);
 
             switch (this._shouldRetry(request, response)) {
                 case ExecutionState.Retry:

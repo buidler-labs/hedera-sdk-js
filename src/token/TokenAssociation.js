@@ -1,9 +1,10 @@
 import AccountId from "../account/AccountId.js";
 import TokenId from "../token/TokenId.js";
+import Hbar from "../Hbar.js";
 
 /**
  * @namespace proto
- * @typedef {import("@hashgraph/proto").ITokenAssociation} proto.ITokenAssociation
+ * @typedef {import("@hashgraph/proto").proto.ITokenAssociation} HashgraphProto.proto.ITokenAssociation
  */
 
 export default class TokenAssociation {
@@ -30,6 +31,8 @@ export default class TokenAssociation {
         if (props.tokenId != null) {
             this.setTokenId(props.tokenId);
         }
+
+        this._defaultMaxTransactionFee = new Hbar(5);
     }
 
     /**
@@ -71,7 +74,7 @@ export default class TokenAssociation {
     /**
      * @internal
      * @abstract
-     * @param {proto.ITokenAssociation} association
+     * @param {HashgraphProto.proto.ITokenAssociation} association
      * @returns {TokenAssociation}
      */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -91,7 +94,7 @@ export default class TokenAssociation {
     /**
      * @internal
      * @abstract
-     * @returns {proto.ITokenAssociation}
+     * @returns {HashgraphProto.proto.ITokenAssociation}
      */
     _toProtobuf() {
         return {

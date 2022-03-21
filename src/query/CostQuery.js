@@ -3,14 +3,7 @@ import Hbar from "../Hbar.js";
 import Executable from "../Executable.js";
 import AccountId from "../account/AccountId.js";
 import { _makePaymentTransaction, COST_QUERY } from "./Query.js";
-import { ResponseType as ProtoResponseType } from "@hashgraph/proto";
-
-/**
- * @namespace proto
- * @typedef {import("@hashgraph/proto").IQuery} proto.IQuery
- * @typedef {import("@hashgraph/proto").IResponse} proto.IResponse
- * @typedef {import("@hashgraph/proto").IQueryHeader} proto.IQueryHeader
- */
+import * as HashgraphProto from "@hashgraph/proto";
 
 /**
  * @typedef {import("../channel/Channel.js").default} Channel
@@ -20,7 +13,7 @@ import { ResponseType as ProtoResponseType } from "@hashgraph/proto";
 
 /**
  * @template OutputT
- * @augments {Executable<proto.IQuery, proto.IResponse, Hbar>}
+ * @augments {Executable<HashgraphProto.proto.IQuery, HashgraphProto.proto.IResponse, Hbar>}
  */
 export default class CostQuery extends Executable {
     /**
@@ -32,10 +25,11 @@ export default class CostQuery extends Executable {
         this._query = query;
         this._grpcDeadline = query._grpcDeadline;
         this._requestTimeout = query._requestTimeout;
-        this._nodeAccountIds.setList(query._nodeAccountIds.list);
+        this._nodeAccountIds.setList(query._nodeAccountIds.list).setLocked();
+        this._operator = query._operator;
 
         /**
-         * @type {proto.IQueryHeader | null}
+         * @type {HashgraphProto.proto.IQueryHeader | null}
          */
         this._header = null;
     }
@@ -45,6 +39,13 @@ export default class CostQuery extends Executable {
      */
     _getTransactionId() {
         return this._query._getTransactionId();
+    }
+
+    /**
+     * @returns {string}
+     */
+    _getLogId() {
+        return `CostQuery:${this._query._getLogId()}`;
     }
 
     /**
@@ -58,7 +59,8 @@ export default class CostQuery extends Executable {
             throw new Error("Cannot do CostQuery without Client");
         }
 
-        const operator = client._operator;
+        const operator =
+            this._operator != null ? this._operator : client._operator;
 
         if (operator == null) {
             throw new Error(
@@ -80,19 +82,19 @@ export default class CostQuery extends Executable {
                 operator,
                 new Hbar(0)
             ),
-            responseType: ProtoResponseType.COST_ANSWER,
+            responseType: HashgraphProto.proto.ResponseType.COST_ANSWER,
         };
     }
 
     /**
      * @abstract
      * @internal
-     * @returns {Promise<proto.IQuery>}
+     * @returns {Promise<HashgraphProto.proto.IQuery>}
      */
     _makeRequestAsync() {
         return Promise.resolve(
             this._query._onMakeRequest(
-                /** @type {proto.IQueryHeader} */ (this._header)
+                /** @type {HashgraphProto.proto.IQueryHeader} */ (this._header)
             )
         );
     }
@@ -100,8 +102,8 @@ export default class CostQuery extends Executable {
     /**
      * @abstract
      * @internal
-     * @param {proto.IQuery} request
-     * @param {proto.IResponse} response
+     * @param {HashgraphProto.proto.IQuery} request
+     * @param {HashgraphProto.proto.IResponse} response
      * @returns {ExecutionState}
      */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -112,8 +114,8 @@ export default class CostQuery extends Executable {
     /**
      * @abstract
      * @internal
-     * @param {proto.IQuery} request
-     * @param {proto.IResponse} response
+     * @param {HashgraphProto.proto.IQuery} request
+     * @param {HashgraphProto.proto.IResponse} response
      * @returns {Error}
      */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -124,9 +126,9 @@ export default class CostQuery extends Executable {
     /**
      * @override
      * @internal
-     * @param {proto.IResponse} response
+     * @param {HashgraphProto.proto.IResponse} response
      * @param {AccountId} nodeAccountId
-     * @param {proto.IQuery} request
+     * @param {HashgraphProto.proto.IQuery} request
      * @returns {Promise<Hbar>}
      */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -141,8 +143,8 @@ export default class CostQuery extends Executable {
      * @override
      * @internal
      * @param {Channel} channel
-     * @param {proto.IQuery} request
-     * @returns {Promise<proto.IResponse>}
+     * @param {HashgraphProto.proto.IQuery} request
+     * @returns {Promise<HashgraphProto.proto.IResponse>}
      */
     _execute(channel, request) {
         return this._query._execute(channel, request);
@@ -156,7 +158,7 @@ export default class CostQuery extends Executable {
         if (!this._nodeAccountIds.isEmpty) {
             // if there are payment transactions,
             // we need to use the node of the current payment transaction
-            return this._nodeAccountIds.list[this._nextNodeAccountIdIndex];
+            return this._nodeAccountIds.current;
         } else {
             throw new Error(
                 "(BUG) nodeAccountIds were not set for query before executing"

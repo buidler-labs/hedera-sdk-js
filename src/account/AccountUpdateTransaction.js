@@ -6,8 +6,17 @@ import Timestamp from "../Timestamp.js";
 import Duration from "../Duration.js";
 import Long from "long";
 import Key from "../Key.js";
-import * as proto from "@hashgraph/proto";
-import PublicKey from "../PublicKey.js";
+
+/**
+ * @namespace proto
+ * @typedef {import("@hashgraph/proto").proto.ITransaction} HashgraphProto.proto.ITransaction
+ * @typedef {import("@hashgraph/proto").proto.ISignedTransaction} HashgraphProto.proto.ISignedTransaction
+ * @typedef {import("@hashgraph/proto").proto.TransactionBody} HashgraphProto.proto.TransactionBody
+ * @typedef {import("@hashgraph/proto").proto.ITransactionBody} HashgraphProto.proto.ITransactionBody
+ * @typedef {import("@hashgraph/proto").proto.ITransactionResponse} HashgraphProto.proto.ITransactionResponse
+ * @typedef {import("@hashgraph/proto").proto.ICryptoUpdateTransactionBody} HashgraphProto.proto.ICryptoUpdateTransactionBody
+ * @typedef {import("@hashgraph/proto").proto.IAccountID} HashgraphProto.proto.IAccountID
+ */
 
 /**
  * @typedef {import("../channel/Channel.js").default} Channel
@@ -121,19 +130,15 @@ export default class AccountUpdateTransaction extends Transaction {
                 props.maxAutomaticTokenAssociations
             );
         }
-
-        if (props.aliasKey != null) {
-            this.setAliasKey(props.aliasKey);
-        }
     }
 
     /**
      * @internal
-     * @param {proto.ITransaction[]} transactions
-     * @param {proto.ISignedTransaction[]} signedTransactions
+     * @param {HashgraphProto.proto.ITransaction[]} transactions
+     * @param {HashgraphProto.proto.ISignedTransaction[]} signedTransactions
      * @param {TransactionId[]} transactionIds
      * @param {AccountId[]} nodeIds
-     * @param {proto.ITransactionBody[]} bodies
+     * @param {HashgraphProto.proto.ITransactionBody[]} bodies
      * @returns {AccountUpdateTransaction}
      */
     static _fromProtobuf(
@@ -144,25 +149,17 @@ export default class AccountUpdateTransaction extends Transaction {
         bodies
     ) {
         const body = bodies[0];
-        const update = /** @type {proto.ICryptoUpdateTransactionBody} */ (
-            body.cryptoUpdateAccount
-        );
-
-        let aliasKey =
-            update.alias != null && update.alias.length > 0
-                ? Key._fromProtobufKey(proto.Key.decode(update.alias))
-                : undefined;
-
-        if (!(aliasKey instanceof PublicKey)) {
-            aliasKey = undefined;
-        }
+        const update =
+            /** @type {HashgraphProto.proto.ICryptoUpdateTransactionBody} */ (
+                body.cryptoUpdateAccount
+            );
 
         return Transaction._fromProtobufTransactions(
             new AccountUpdateTransaction({
                 accountId:
                     update.accountIDToUpdate != null
                         ? AccountId._fromProtobuf(
-                              /** @type {proto.IAccountID} */ (
+                              /** @type {HashgraphProto.proto.IAccountID} */ (
                                   update.accountIDToUpdate
                               )
                           )
@@ -178,7 +175,7 @@ export default class AccountUpdateTransaction extends Transaction {
                 proxyAccountId:
                     update.proxyAccountID != null
                         ? AccountId._fromProtobuf(
-                              /** @type {proto.IAccountID} */ (
+                              /** @type {HashgraphProto.proto.IAccountID} */ (
                                   update.proxyAccountID
                               )
                           )
@@ -206,7 +203,6 @@ export default class AccountUpdateTransaction extends Transaction {
                               update.maxAutomaticTokenAssociations.value
                           )
                         : undefined,
-                aliasKey,
             }),
             transactions,
             signedTransactions,
@@ -385,20 +381,20 @@ export default class AccountUpdateTransaction extends Transaction {
     }
 
     /**
+     * @deprecated - no longer supported
      * @returns {?Key}
      */
     get aliasKey() {
-        return this._aliasKey;
+        return null;
     }
 
     /**
-     * @param {Key} aliasKey
+     * @deprecated - no longer supported
+     * @param {Key} _
      * @returns {this}
      */
-    setAliasKey(aliasKey) {
-        this._requireNotFrozen();
-        this._aliasKey = aliasKey;
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setAliasKey(_) {
         return this;
     }
 
@@ -419,8 +415,8 @@ export default class AccountUpdateTransaction extends Transaction {
      * @override
      * @internal
      * @param {Channel} channel
-     * @param {proto.ITransaction} request
-     * @returns {Promise<proto.ITransactionResponse>}
+     * @param {HashgraphProto.proto.ITransaction} request
+     * @returns {Promise<HashgraphProto.proto.ITransactionResponse>}
      */
     _execute(channel, request) {
         return channel.crypto.updateAccount(request);
@@ -429,7 +425,7 @@ export default class AccountUpdateTransaction extends Transaction {
     /**
      * @override
      * @protected
-     * @returns {NonNullable<proto.TransactionBody["data"]>}
+     * @returns {NonNullable<HashgraphProto.proto.TransactionBody["data"]>}
      */
     _getTransactionDataCase() {
         return "cryptoUpdateAccount";
@@ -438,7 +434,7 @@ export default class AccountUpdateTransaction extends Transaction {
     /**
      * @override
      * @protected
-     * @returns {proto.ICryptoUpdateTransactionBody}
+     * @returns {HashgraphProto.proto.ICryptoUpdateTransactionBody}
      */
     _makeTransactionData() {
         return {
@@ -473,11 +469,17 @@ export default class AccountUpdateTransaction extends Transaction {
                 this._maxAutomaticTokenAssociations != null
                     ? { value: this._maxAutomaticTokenAssociations.toInt() }
                     : null,
-            alias:
-                this._key != null
-                    ? proto.Key.encode(this._key._toProtobufKey()).finish()
-                    : null,
         };
+    }
+
+    /**
+     * @returns {string}
+     */
+    _getLogId() {
+        const timestamp = /** @type {import("../Timestamp.js").default} */ (
+            this._transactionIds.current.validStart
+        );
+        return `AccountUpdateTransaction:${timestamp.toString()}`;
     }
 }
 

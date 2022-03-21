@@ -7,7 +7,7 @@ import {
 } from "../../src/exports.js";
 import Mocker, { UNAVAILABLE, INTERNAL, PRIVATE_KEY } from "./Mocker.js";
 import Long from "long";
-import * as proto from "@hashgraph/proto";
+import { proto } from "@hashgraph/proto";
 import * as hex from "../../src/encoding/hex.js";
 
 const ACCOUNT_INFO_QUERY_COST_RESPONSE = {
@@ -41,23 +41,31 @@ const ACCOUNT_INFO_QUERY_RESPONSE = {
     },
 };
 
-describe("AccountInfo", function () {
-    it("should retry on `UNAVAILABLE`", async function () {
-        const { client, servers } = await Mocker.withResponses([
+describe("AccountInfoMocking", function () {
+    let client;
+    let servers;
+
+    afterEach(function () {
+        client.close();
+        servers.close();
+    });
+
+    it("should retry on UNAVAILABLE", async function () {
+        this.timeout(10000);
+
+        ({ client, servers } = await Mocker.withResponses([
             [
                 { error: UNAVAILABLE },
                 { response: ACCOUNT_INFO_QUERY_COST_RESPONSE },
                 { response: ACCOUNT_INFO_QUERY_RESPONSE },
             ],
-        ]);
+        ]));
 
         const info = await new AccountInfoQuery()
             .setAccountId("0.0.3")
             .execute(client);
 
         expect(info.accountId.toString()).to.be.equal("0.0.10");
-
-        servers.close();
     });
 
     it("should retry on `INTERNAL` and retry multiple nodes", async function () {
@@ -76,10 +84,10 @@ describe("AccountInfo", function () {
             { response: ACCOUNT_INFO_QUERY_RESPONSE },
         ];
 
-        const { client, servers } = await Mocker.withResponses([
+        ({ client, servers } = await Mocker.withResponses([
             responses1,
             responses2,
-        ]);
+        ]));
 
         const info = await new AccountInfoQuery()
             .setNodeAccountIds([new AccountId(3), new AccountId(4)])
@@ -87,8 +95,6 @@ describe("AccountInfo", function () {
             .execute(client);
 
         expect(info.accountId.toString()).to.be.equal("0.0.10");
-
-        servers.close();
     });
 
     it("should be able to execute after getting transaction hashes", async function () {
@@ -96,12 +102,11 @@ describe("AccountInfo", function () {
 
         const responses1 = [{ response: { nodeTransactionPrecheckCode: 0 } }];
 
-        const { client, servers } = await Mocker.withResponses([responses1]);
+        ({ client, servers } = await Mocker.withResponses([responses1]));
 
         client.setSignOnDemand(true);
 
         const transaction = await new FileCreateTransaction()
-            .setNodeAccountIds([new AccountId(3)])
             .setContents("hello 1")
             .freezeWith(client)
             .signWithOperator(client);
@@ -113,8 +118,6 @@ describe("AccountInfo", function () {
         expect(hex.encode(hash)).to.be.equal(
             hex.encode(response.transactionHash)
         );
-
-        servers.close();
     });
 
     it("should be able to execute after getting transaction hashes with sign on demand disabled", async function () {
@@ -122,10 +125,9 @@ describe("AccountInfo", function () {
 
         const responses1 = [{ response: { nodeTransactionPrecheckCode: 0 } }];
 
-        const { client, servers } = await Mocker.withResponses([responses1]);
+        ({ client, servers } = await Mocker.withResponses([responses1]));
 
         const transaction = await new FileCreateTransaction()
-            .setNodeAccountIds([new AccountId(3)])
             .setContents("hello 1")
             .freezeWith(client)
             .signWithOperator(client);
@@ -137,8 +139,6 @@ describe("AccountInfo", function () {
         expect(hex.encode(hash)).to.be.equal(
             hex.encode(response.transactionHash)
         );
-
-        servers.close();
     });
 
     it("should generate new transaction ID when TRANSACTION_EXPIRED is return", async function () {
@@ -184,15 +184,13 @@ describe("AccountInfo", function () {
 
         const responses1 = [{ call }, { call }, { call }];
 
-        const { client, servers } = await Mocker.withResponses([responses1]);
+        ({ client, servers } = await Mocker.withResponses([responses1]));
 
         client.setSignOnDemand(true);
 
         await new FileCreateTransaction()
             .setContents("hello 1")
             .execute(client);
-
-        servers.close();
     });
 
     it("should error `TRANSACTION_EXPIRED` is return and client disabled transaction regeneration", async function () {
@@ -207,7 +205,7 @@ describe("AccountInfo", function () {
             },
         ];
 
-        const { client, servers } = await Mocker.withResponses([responses1]);
+        ({ client, servers } = await Mocker.withResponses([responses1]));
 
         client.setSignOnDemand(true);
 
@@ -221,8 +219,6 @@ describe("AccountInfo", function () {
                 throw error;
             }
         }
-
-        servers.close();
     });
 
     it("should still regenerate transaction IDs on `TRANSACTION_EXPIRED` when client disabled it, but transaction re-enabled it", async function () {
@@ -268,7 +264,7 @@ describe("AccountInfo", function () {
 
         const responses1 = [{ call }, { call }, { call }];
 
-        const { client, servers } = await Mocker.withResponses([responses1]);
+        ({ client, servers } = await Mocker.withResponses([responses1]));
 
         client.setSignOnDemand(true);
         client.setDefaultRegenerateTransactionId(false);
@@ -277,12 +273,10 @@ describe("AccountInfo", function () {
             .setRegenerateTransactionId(true)
             .setContents("hello 1")
             .execute(client);
-
-        servers.close();
     });
 
     it("should timeout if Client.setRequestTimeout is set", async function () {
-        const { client, servers } = await Mocker.withResponses([
+        ({ client, servers } = await Mocker.withResponses([
             [
                 { error: UNAVAILABLE },
                 { error: UNAVAILABLE },
@@ -291,7 +285,7 @@ describe("AccountInfo", function () {
                 { error: UNAVAILABLE },
                 { error: UNAVAILABLE },
             ],
-        ]);
+        ]));
 
         client.setRequestTimeout(1);
 
@@ -303,15 +297,13 @@ describe("AccountInfo", function () {
             err = error.message == "timeout exceeded";
         }
 
-        servers.close();
-
         if (!err) {
             throw new Error("request didn't timeout");
         }
     });
 
     it("should timeout if Executable.execute(client, requestTimeout) is set", async function () {
-        const { client, servers } = await Mocker.withResponses([
+        ({ client, servers } = await Mocker.withResponses([
             [
                 { error: UNAVAILABLE },
                 { error: UNAVAILABLE },
@@ -320,7 +312,7 @@ describe("AccountInfo", function () {
                 { error: UNAVAILABLE },
                 { error: UNAVAILABLE },
             ],
-        ]);
+        ]));
 
         let err = false;
 
@@ -332,15 +324,13 @@ describe("AccountInfo", function () {
             err = error.message == "timeout exceeded";
         }
 
-        servers.close();
-
         if (!err) {
             throw new Error("request didn't timeout");
         }
     });
 
     it("should timeout if gRPC deadline is reached", async function () {
-        const { client, servers } = await Mocker.withResponses([
+        ({ client, servers } = await Mocker.withResponses([
             [
                 { error: UNAVAILABLE },
                 { error: UNAVAILABLE },
@@ -350,7 +340,7 @@ describe("AccountInfo", function () {
                 { error: UNAVAILABLE },
                 { error: UNAVAILABLE },
             ],
-        ]);
+        ]));
 
         let err = false;
 
@@ -363,10 +353,30 @@ describe("AccountInfo", function () {
             err = error.message == "grpc deadline exceeded";
         }
 
-        servers.close();
-
         if (!err) {
             throw new Error("request didn't timeout");
         }
+    });
+
+    it("should re-create a transaction if sign on demand is enabled and a random node is chosen which is not in the current list", async function () {
+        this.timeout(10000);
+
+        const responses1 = [{ response: { nodeTransactionPrecheckCode: 0 } }];
+
+        ({ client, servers } = await Mocker.withResponses([responses1]));
+
+        client.setSignOnDemand(true);
+
+        const transaction = new FileCreateTransaction()
+            .setContents("hello 1")
+            .freezeWith(client);
+
+        // Sets the nodeAccountIds to a different list, but doesn't lock the list
+        // this similates when `freezeWith()` sets the node account IDs to a list
+        // without locking it, but this list overwritten when executing.
+        transaction._nodeAccountIds.setList([new AccountId(4)]);
+
+        await transaction.signWithOperator(client);
+        await transaction.execute(client);
     });
 });

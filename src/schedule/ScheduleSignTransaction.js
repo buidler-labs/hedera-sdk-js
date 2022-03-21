@@ -1,4 +1,5 @@
 import ScheduleId from "./ScheduleId.js";
+import Hbar from "../Hbar.js";
 import Transaction, {
     TRANSACTION_REGISTRY,
 } from "../transaction/Transaction.js";
@@ -22,14 +23,14 @@ import Transaction, {
 
 /**
  * @namespace proto
- * @typedef {import("@hashgraph/proto").ITransaction} proto.ITransaction
- * @typedef {import("@hashgraph/proto").ISignedTransaction} proto.ISignedTransaction
- * @typedef {import("@hashgraph/proto").TransactionBody} proto.TransactionBody
- * @typedef {import("@hashgraph/proto").ITransactionBody} proto.ITransactionBody
- * @typedef {import("@hashgraph/proto").ITransactionResponse} proto.ITransactionResponse
- * @typedef {import("@hashgraph/proto").IScheduleSignTransactionBody} proto.IScheduleSignTransactionBody
- * @typedef {import("@hashgraph/proto").IAccountID} proto.IAccountID
- * @typedef {import("@hashgraph/proto").ISignatureMap} proto.ISignatureMap
+ * @typedef {import("@hashgraph/proto").proto.ITransaction} HashgraphProto.proto.ITransaction
+ * @typedef {import("@hashgraph/proto").proto.ISignedTransaction} HashgraphProto.proto.ISignedTransaction
+ * @typedef {import("@hashgraph/proto").proto.TransactionBody} HashgraphProto.proto.TransactionBody
+ * @typedef {import("@hashgraph/proto").proto.ITransactionBody} HashgraphProto.proto.ITransactionBody
+ * @typedef {import("@hashgraph/proto").proto.ITransactionResponse} HashgraphProto.proto.ITransactionResponse
+ * @typedef {import("@hashgraph/proto").proto.IScheduleSignTransactionBody} HashgraphProto.proto.IScheduleSignTransactionBody
+ * @typedef {import("@hashgraph/proto").proto.IAccountID} HashgraphProto.proto.IAccountID
+ * @typedef {import("@hashgraph/proto").proto.ISignatureMap} HashgraphProto.proto.ISignatureMap
  */
 
 /**
@@ -63,15 +64,17 @@ export default class ScheduleSignTransaction extends Transaction {
         if (props.scheduleId != null) {
             this.setScheduleId(props.scheduleId);
         }
+
+        this._defaultMaxTransactionFee = new Hbar(5);
     }
 
     /**
      * @internal
-     * @param {proto.ITransaction[]} transactions
-     * @param {proto.ISignedTransaction[]} signedTransactions
+     * @param {HashgraphProto.proto.ITransaction[]} transactions
+     * @param {HashgraphProto.proto.ISignedTransaction[]} signedTransactions
      * @param {TransactionId[]} transactionIds
      * @param {AccountId[]} nodeIds
-     * @param {proto.ITransactionBody[]} bodies
+     * @param {HashgraphProto.proto.ITransactionBody[]} bodies
      * @returns {ScheduleSignTransaction}
      */
     static _fromProtobuf(
@@ -82,9 +85,10 @@ export default class ScheduleSignTransaction extends Transaction {
         bodies
     ) {
         const body = bodies[0];
-        const sign = /** @type {proto.IScheduleSignTransactionBody} */ (
-            body.scheduleSign
-        );
+        const sign =
+            /** @type {HashgraphProto.proto.IScheduleSignTransactionBody} */ (
+                body.scheduleSign
+            );
 
         return Transaction._fromProtobufTransactions(
             new ScheduleSignTransaction({
@@ -135,8 +139,8 @@ export default class ScheduleSignTransaction extends Transaction {
      * @override
      * @internal
      * @param {Channel} channel
-     * @param {proto.ITransaction} request
-     * @returns {Promise<proto.ITransactionResponse>}
+     * @param {HashgraphProto.proto.ITransaction} request
+     * @returns {Promise<HashgraphProto.proto.ITransactionResponse>}
      */
     _execute(channel, request) {
         return channel.schedule.signSchedule(request);
@@ -145,7 +149,7 @@ export default class ScheduleSignTransaction extends Transaction {
     /**
      * @override
      * @protected
-     * @returns {NonNullable<proto.TransactionBody["data"]>}
+     * @returns {NonNullable<HashgraphProto.proto.TransactionBody["data"]>}
      */
     _getTransactionDataCase() {
         return "scheduleSign";
@@ -154,7 +158,7 @@ export default class ScheduleSignTransaction extends Transaction {
     /**
      * @override
      * @protected
-     * @returns {proto.IScheduleSignTransactionBody}
+     * @returns {HashgraphProto.proto.IScheduleSignTransactionBody}
      */
     _makeTransactionData() {
         return {
@@ -163,6 +167,16 @@ export default class ScheduleSignTransaction extends Transaction {
                     ? this._scheduleId._toProtobuf()
                     : null,
         };
+    }
+
+    /**
+     * @returns {string}
+     */
+    _getLogId() {
+        const timestamp = /** @type {import("../Timestamp.js").default} */ (
+            this._transactionIds.current.validStart
+        );
+        return `ScheduleSignTransaction:${timestamp.toString()}`;
     }
 }
 
